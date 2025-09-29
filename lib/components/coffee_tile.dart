@@ -1,7 +1,9 @@
 import 'package:cafe/models/coffee.dart';
+import 'package:cafe/models/coffee_shop.dart';
 import 'package:cafe/theme/colors.dart';
 import 'package:cafe/pages/coffee_detail_page.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class CoffeeTile extends StatelessWidget {
   final Coffee coffee;
@@ -17,24 +19,48 @@ class CoffeeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final shop = Provider.of<CoffeeShop>(context, listen: true);
+    final fav = shop.isFavorite(coffee);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: Theme.of(context).cardColor.withOpacity(isDark ? 1 : .95),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.35),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-            spreadRadius: -4,
-          ),
+          if (isDark)
+            BoxShadow(
+              color: Colors.black.withOpacity(.35),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+              spreadRadius: -4,
+            )
+          else ...[
+            BoxShadow(
+              color: Colors.brown.withOpacity(.08),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+              spreadRadius: -2,
+            ),
+            BoxShadow(
+              color: Colors.brown.withOpacity(.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+              spreadRadius: 0,
+            ),
+          ],
         ],
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(.05)
+              : Colors.brown.withOpacity(.12),
+        ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          Navigator.of(context).push(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () async {
+          final added = await Navigator.of(context).push(
             PageRouteBuilder(
               transitionDuration: const Duration(milliseconds: 450),
               pageBuilder: (_, a1, a2) => FadeTransition(
@@ -43,6 +69,9 @@ class CoffeeTile extends StatelessWidget {
               ),
             ),
           );
+          if (added == true) {
+            onPressed?.call();
+          }
         },
         child: Row(
           children: [
@@ -52,34 +81,64 @@ class CoffeeTile extends StatelessWidget {
                 topLeft: Radius.circular(22),
                 bottomLeft: Radius.circular(22),
               ),
-              child: SizedBox(
-                width: 92,
-                height: 108,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      coffee.imagePath,
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => Container(
-                        color: Colors.grey[800],
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.coffee, color: Colors.white54),
-                      ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.55),
-                            Colors.transparent,
-                          ],
+              child: Hero(
+                tag: 'coffee-image-${coffee.name}',
+                child: SizedBox(
+                  width: 92,
+                  height: 108,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        coffee.imagePath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Container(
+                          color: Colors.grey[800],
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.coffee,
+                            color: Colors.white54,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.55),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: GestureDetector(
+                          onTap: () => shop.toggleFavorite(coffee),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: fav
+                                  ? AppColors.accent
+                                  : Colors.black.withOpacity(.35),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              fav ? Icons.favorite : Icons.favorite_border,
+                              size: 16,
+                              color: fav
+                                  ? Colors.black
+                                  : Colors.white.withOpacity(.9),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -99,10 +158,12 @@ class CoffeeTile extends StatelessWidget {
                         Expanded(
                           child: Text(
                             coffee.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodyMedium?.color,
                               letterSpacing: .3,
                             ),
                             maxLines: 1,
@@ -136,14 +197,18 @@ class CoffeeTile extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(.06),
+                        color: isDark
+                            ? Colors.white.withOpacity(.06)
+                            : Colors.brown.withOpacity(.08),
                         borderRadius: BorderRadius.circular(30),
                       ),
                       child: Text(
                         coffee.category,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: AppColors.subtleText,
+                          color: isDark
+                              ? AppColors.subtleText
+                              : Colors.brown.shade400,
                           letterSpacing: .4,
                         ),
                       ),

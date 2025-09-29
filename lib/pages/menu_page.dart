@@ -2,6 +2,7 @@ import 'package:cafe/components/coffee_tile.dart';
 import 'package:cafe/models/coffee.dart';
 import 'package:cafe/models/coffee_shop.dart';
 import 'package:cafe/theme/colors.dart';
+import 'package:cafe/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -51,40 +52,7 @@ class _MenuPageState extends State<MenuPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              'Welcome Back',
-                              style: TextStyle(
-                                color: AppColors.subtleText,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Find your coffee',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: AppColors.card,
-                          backgroundImage: const NetworkImage(
-                            'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=800',
-                          ),
-                        ),
-                      ],
-                    ),
+                    _HeaderBar(),
                     const SizedBox(height: 18),
                     // search
                     TextField(
@@ -189,6 +157,126 @@ class _CategoryChip extends StatelessWidget {
           fontSize: 13,
         ),
       ),
+    );
+  }
+}
+
+class _HeaderBar extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Provider.of<AppTheme>(context);
+    final shop = Provider.of<CoffeeShop>(context);
+    final isDark = theme.isDark;
+    final textColor = Theme.of(context).textTheme.bodyMedium?.color;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Welcome Back',
+                style: TextStyle(
+                  color: isDark ? AppColors.subtleText : Colors.brown.shade400,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Find your coffee',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: isDark ? 'Light Mode' : 'Dark Mode',
+          onPressed: () => theme.toggle(),
+          icon: Icon(isDark ? Icons.wb_sunny_rounded : Icons.dark_mode_rounded),
+          color: isDark ? AppColors.accent : Colors.brown.shade600,
+        ),
+        const SizedBox(width: 4),
+        _BadgeIcon(
+          icon: Icons.favorite,
+          count: shop.favorites.length,
+          color: AppColors.accent,
+        ),
+        const SizedBox(width: 8),
+        _BadgeIcon(
+          icon: Icons.shopping_bag,
+          count: shop.userCart.length,
+          color: AppColors.accent2,
+        ),
+      ],
+    );
+  }
+}
+
+class _BadgeIcon extends StatelessWidget {
+  final IconData icon;
+  final int count;
+  final Color color;
+  const _BadgeIcon({
+    required this.icon,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: IconButton(
+            onPressed: () {},
+            icon: Icon(icon, size: 22),
+            color: color,
+            splashRadius: 24,
+          ),
+        ),
+        if (count > 0)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: AnimatedScale(
+              scale: 1,
+              duration: const Duration(milliseconds: 250),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  count.toString(),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

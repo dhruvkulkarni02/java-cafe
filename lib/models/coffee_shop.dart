@@ -47,11 +47,15 @@ class CoffeeShop extends ChangeNotifier {
   // user cart
   final List<Coffee> _userCart = [];
 
+  // favorites
+  final List<Coffee> _favorites = [];
+
   // get coffee list
   List<Coffee> get coffeeShop => _shop;
 
   // get user cart
   List<Coffee> get userCart => _userCart;
+  List<Coffee> get favorites => _favorites;
 
   // add item to cart
   void addItemToCart(Coffee coffee) {
@@ -63,5 +67,29 @@ class CoffeeShop extends ChangeNotifier {
   void removeItemFromCart(Coffee coffee) {
     _userCart.remove(coffee);
     notifyListeners();
+  }
+
+  void toggleFavorite(Coffee coffee) {
+    final i = _shop.indexWhere((c) => c.name == coffee.name);
+    if (i != -1) {
+      _shop[i].isFavorite = !_shop[i].isFavorite;
+    }
+    if (_shop[i].isFavorite) {
+      if (!_favorites.contains(_shop[i])) _favorites.add(_shop[i]);
+    } else {
+      _favorites.removeWhere((c) => c.name == coffee.name);
+    }
+    notifyListeners();
+  }
+
+  bool isFavorite(Coffee coffee) =>
+      _favorites.any((element) => element.name == coffee.name);
+
+  double cartTotal() {
+    double sum = 0;
+    for (final c in _userCart) {
+      sum += double.tryParse(c.price) ?? 0;
+    }
+    return sum;
   }
 }
