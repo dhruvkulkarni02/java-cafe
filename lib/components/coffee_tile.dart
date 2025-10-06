@@ -4,24 +4,110 @@ import 'package:cafe/theme/colors.dart';
 import 'package:cafe/pages/coffee_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:transparent_image/transparent_image.dart';
 
-class CoffeeTile extends StatelessWidget {
+class CoffeeTile extends StatefulWidget {
   final Coffee coffee;
-  final void Function()? onPressed;
+  final VoidCallback? onPressed;
   final Widget icon;
+  final bool enableAddAnimation;
 
   const CoffeeTile({
     super.key,
     required this.coffee,
     required this.onPressed,
     required this.icon,
+    this.enableAddAnimation = false,
   });
 
   @override
+  State<CoffeeTile> createState() => _CoffeeTileState();
+}
+
+class _CoffeeTileState extends State<CoffeeTile>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+  final Animation<double> _idleAnimation = const AlwaysStoppedAnimation(1);
+  bool _showCheckmark = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1, end: 1.15), weight: 60),
+      TweenSequenceItem(tween: Tween(begin: 1.15, end: 1), weight: 40),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onActionPressed() {
+    widget.onPressed?.call();
+    if (widget.enableAddAnimation) {
+      _triggerAddAnimation();
+    }
+  }
+
+  void _triggerAddAnimation() {
+    _controller.forward(from: 0);
+    setState(() => _showCheckmark = true);
+    Future<void>.delayed(const Duration(milliseconds: 550), () {
+      if (!mounted) return;
+      setState(() => _showCheckmark = false);
+    });
+  }
+
+  Animation<double> get _effectiveScale =>
+      widget.enableAddAnimation ? _scaleAnimation : _idleAnimation;
+
+  Widget get _currentIcon {
+    if (widget.enableAddAnimation && _showCheckmark) {
+      return const Icon(Icons.check, key: ValueKey('added'), size: 18);
+    }
+    return KeyedSubtree(key: const ValueKey('default'), child: widget.icon);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final coffee = widget.coffee;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final shop = Provider.of<CoffeeShop>(context, listen: true);
     final fav = shop.isFavorite(coffee);
+    Widget fallbackImage({double iconSize = 36}) => Container(
+      color: Colors.grey[850],
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.coffee,
+        color: Colors.white.withOpacity(.55),
+        size: iconSize,
+      ),
+    );
+
+    Widget buildImage() {
+      final url = coffee.remoteImageUrl;
+      if (url != null && url.isNotEmpty) {
+        return FadeInImage.memoryNetwork(
+          placeholder: kTransparentImage,
+          image: url,
+          fit: BoxFit.cover,
+          fadeInDuration: const Duration(milliseconds: 320),
+          fadeInCurve: Curves.easeInOut,
+          imageErrorBuilder: (context, error, stackTrace) =>
+              fallbackImage(iconSize: 34),
+        );
+      }
+      return fallbackImage(iconSize: 34);
+    }
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.only(bottom: 18),
@@ -69,8 +155,8 @@ class CoffeeTile extends StatelessWidget {
               ),
             ),
           );
-          if (added == true) {
-            onPressed?.call();
+          if (added == true && widget.enableAddAnimation) {
+            _triggerAddAnimation();
           }
         },
         child: Row(
@@ -89,18 +175,7 @@ class CoffeeTile extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(
-                        coffee.imagePath,
-                        fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) => Container(
-                          color: Colors.grey[800],
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.coffee,
-                            color: Colors.white54,
-                          ),
-                        ),
-                      ),
+                      Positioned.fill(child: buildImage()),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -231,12 +306,25 @@ class CoffeeTile extends StatelessWidget {
                             color: AppColors.accent,
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: IconButton(
-                            icon: icon,
-                            color: Colors.black,
-                            onPressed: onPressed,
-                            iconSize: 20,
-                            splashRadius: 22,
+                          child: ScaleTransition(
+                            scale: _effectiveScale,
+                            child: IconButton(
+                              icon: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 240),
+                                transitionBuilder: (child, animation) =>
+                                    ScaleTransition(
+                                      scale: animation,
+                                      child: child,
+                                    ),
+                                child: _currentIcon,
+                              ),
+                              color: widget.enableAddAnimation
+                                  ? Colors.black
+                                  : Theme.of(context).iconTheme.color,
+                              onPressed: _onActionPressed,
+                              iconSize: 20,
+                              splashRadius: 22,
+                            ),
                           ),
                         ),
                       ],

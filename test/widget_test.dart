@@ -5,24 +5,26 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:cafe/main.dart';
 import 'package:cafe/models/coffee_shop.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-
-import 'package:cafe/main.dart';
 
 void main() {
   testWidgets('Intro page smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (context) => CoffeeShop(),
-        child: const MyApp(),
-      ),
-    );
+    // Build app with a fake coffee shop to avoid hitting the network.
+    await tester.pumpWidget(MyApp(coffeeShop: _FakeCoffeeShop()));
 
     // Verify that our intro page is shown.
-    expect(find.text('JAVA CAFE'), findsOneWidget);
-    expect(find.text('THE BEST COFFEE IN TOWN'), findsOneWidget);
+    expect(find.text('JAVA CAFÉ'), findsOneWidget);
+    expect(find.text('Brewed perfection. Crafted for you.'), findsOneWidget);
   });
+}
+
+class _FakeCoffeeShop extends CoffeeShop {
+  _FakeCoffeeShop();
+
+  @override
+  Future<void> load({bool forceRefresh = false}) async {
+    // No-op to keep tests offline.
+  }
 }

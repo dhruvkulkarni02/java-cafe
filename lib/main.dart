@@ -11,36 +11,55 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final CoffeeShop? coffeeShop;
+  final AppTheme? appTheme;
+
+  const MyApp({super.key, this.coffeeShop, this.appTheme});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => CoffeeShop()),
-        ChangeNotifierProvider(create: (_) => AppTheme()),
+        if (coffeeShop == null)
+          ChangeNotifierProvider(create: (_) => CoffeeShop())
+        else
+          ChangeNotifierProvider.value(value: coffeeShop!),
+        if (appTheme == null)
+          ChangeNotifierProvider(create: (_) => AppTheme())
+        else
+          ChangeNotifierProvider.value(value: appTheme!),
       ],
-      child: Consumer<AppTheme>(
-        builder: (context, appTheme, _) => MaterialApp(
-          debugShowCheckedModeBanner: false,
-          themeMode: appTheme.isDark ? ThemeMode.dark : ThemeMode.light,
-          theme: _buildLightTheme(),
-          // dark
-          darkTheme: _buildDarkTheme(),
-          home: const IntroPage(),
-        ),
+      child: Builder(
+        builder: (context) {
+          // kick off async loads once (post frame)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final shop = Provider.of<CoffeeShop>(context, listen: false);
+            final theme = Provider.of<AppTheme>(context, listen: false);
+            shop.load();
+            theme.load();
+          });
+          return Consumer<AppTheme>(
+            builder: (context, appTheme, _) => MaterialApp(
+              debugShowCheckedModeBanner: false,
+              themeMode: appTheme.isDark ? ThemeMode.dark : ThemeMode.light,
+              theme: _buildLightTheme(),
+              darkTheme: _buildDarkTheme(),
+              home: const IntroPage(),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
 ThemeData _baseTheme(ColorScheme scheme) => ThemeData(
-  scaffoldBackgroundColor: scheme.background,
+  scaffoldBackgroundColor: scheme.surface,
   colorScheme: scheme,
   useMaterial3: true,
   textTheme: GoogleFonts.dmSansTextTheme(),
   snackBarTheme: SnackBarThemeData(
-    backgroundColor: scheme.surfaceVariant,
+    backgroundColor: scheme.surfaceContainerHighest,
     contentTextStyle: TextStyle(color: scheme.onSurfaceVariant),
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

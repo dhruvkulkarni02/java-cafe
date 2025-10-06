@@ -121,11 +121,21 @@ class _CheckoutBar extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                total.toStringAsFixed(2),
+                '\$${total.toStringAsFixed(2)}',
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
                   color: textColor,
+                  letterSpacing: .5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Taxes calculated at payment',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.subtleText : Colors.brown.shade300,
+                  letterSpacing: .2,
                 ),
               ),
             ],

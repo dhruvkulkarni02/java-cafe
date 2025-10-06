@@ -33,9 +33,9 @@ class _MenuPageState extends State<MenuPage> {
 
     // let user know it has been successfully added
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Successfully added to cart"),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text('${coffee.name} added to cart'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -43,94 +43,158 @@ class _MenuPageState extends State<MenuPage> {
   @override
   Widget build(BuildContext context) {
     return Consumer<CoffeeShop>(
-      builder: (context, value, child) => SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _HeaderBar(),
-                    const SizedBox(height: 18),
-                    // search
-                    TextField(
-                      onChanged: (val) => setState(() => _query = val),
-                      decoration: InputDecoration(
-                        hintText: 'Search coffee...',
-                        hintStyle: const TextStyle(color: AppColors.subtleText),
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: AppColors.subtleText,
+      builder: (context, shop, child) {
+        final coffees = _filtered(shop.coffeeShop);
+        final hasError = shop.errorMessage != null && !shop.isLoading;
+        final shouldShowEmpty =
+            !shop.isLoading && shop.hasLoaded && coffees.isEmpty && !hasError;
+
+        return SafeArea(
+          child: RefreshIndicator(
+            color: AppColors.accent,
+            onRefresh: shop.refresh,
+            displacement: 80,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _HeaderBar(),
+                        const SizedBox(height: 18),
+                        // search
+                        TextField(
+                          onChanged: (val) => setState(() => _query = val),
+                          decoration: InputDecoration(
+                            hintText: 'Search coffee...',
+                            hintStyle: const TextStyle(
+                              color: AppColors.subtleText,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: AppColors.subtleText,
+                            ),
+                            suffixIcon: _query.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(
+                                      Icons.clear,
+                                      color: AppColors.subtleText,
+                                    ),
+                                    onPressed: () =>
+                                        setState(() => _query = ''),
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: AppColors.card,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 0,
+                              horizontal: 0,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
                         ),
-                        suffixIcon: _query.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(
-                                  Icons.clear,
-                                  color: AppColors.subtleText,
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          height: 42,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 350),
+                            child: ListView(
+                              key: ValueKey(shop.categories.length),
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              children: [
+                                GestureDetector(
+                                  onTap: () =>
+                                      setState(() => _selectedCategory = 'All'),
+                                  child: _CategoryChip(
+                                    label: 'All',
+                                    selected: _selectedCategory == 'All',
+                                  ),
                                 ),
-                                onPressed: () => setState(() => _query = ''),
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: AppColors.card,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 0,
-                          horizontal: 0,
+                                for (final cat in shop.categories)
+                                  GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _selectedCategory = cat),
+                                    child: _CategoryChip(
+                                      label: cat,
+                                      selected: _selectedCategory == cat,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      height: 40,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          for (final cat in const [
-                            'All',
-                            'Espresso',
-                            'Latte',
-                            'Iced',
-                          ])
-                            GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedCategory = cat),
-                              child: _CategoryChip(
-                                label: cat,
-                                selected: _selectedCategory == cat,
+                        if (shop.isRefreshing)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 12),
+                            child: LinearProgressIndicator(minHeight: 3),
+                          ),
+                        if (shop.hasLoaded && coffees.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 250),
+                              opacity: 1,
+                              child: Text(
+                                '${coffees.length} drinks • ${shop.categories.length} categories',
+                                style: TextStyle(
+                                  color: AppColors.subtleText.withOpacity(0.85),
+                                  fontSize: 12,
+                                  letterSpacing: .3,
+                                ),
                               ),
                             ),
-                        ],
-                      ),
+                          ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                  ],
+                  ),
                 ),
-              ),
+                if (shop.isLoading && !shop.hasLoaded)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (hasError)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _ErrorState(
+                      message: shop.errorMessage!,
+                      onRetry: shop.refresh,
+                    ),
+                  )
+                else if (shouldShowEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyState(),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final eachCoffee = coffees[index];
+                        return CoffeeTile(
+                          coffee: eachCoffee,
+                          onPressed: () => addToCart(eachCoffee),
+                          icon: const Icon(Icons.add, size: 18),
+                          enableAddAnimation: true,
+                        );
+                      }, childCount: coffees.length),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
             ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final list = _filtered(value.coffeeShop);
-                  Coffee eachCoffee = list[index];
-                  return CoffeeTile(
-                    coffee: eachCoffee,
-                    icon: const Icon(Icons.add, size: 18),
-                    onPressed: () => addToCart(eachCoffee),
-                  );
-                }, childCount: _filtered(value.coffeeShop).length),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 40)),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -142,21 +206,85 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = selected
+        ? AppColors.accent
+        : (isDark ? AppColors.card : Colors.brown.withOpacity(.08));
+    final txtColor = selected
+        ? Colors.black
+        : (isDark ? AppColors.subtleText : Colors.brown.shade500);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: selected ? AppColors.accent : AppColors.card,
+        color: bg,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: selected ? Colors.black : AppColors.subtleText,
+          color: txtColor,
           fontWeight: FontWeight.w600,
           fontSize: 13,
+          letterSpacing: .3,
         ),
       ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: const [
+        Icon(Icons.coffee_outlined, size: 56, color: AppColors.subtleText),
+        SizedBox(height: 16),
+        Text(
+          'No drinks match your filters',
+          style: TextStyle(color: AppColors.subtleText, fontSize: 16),
+        ),
+      ],
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final Future<void> Function() onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(
+          Icons.wifi_off_rounded,
+          size: 56,
+          color: AppColors.subtleText,
+        ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            message,
+            style: const TextStyle(color: AppColors.subtleText, fontSize: 15),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(height: 20),
+        FilledButton(
+          onPressed: () => onRetry(),
+          child: const Text('Try Again'),
+        ),
+      ],
     );
   }
 }

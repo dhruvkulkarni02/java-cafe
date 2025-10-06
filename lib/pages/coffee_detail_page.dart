@@ -1,6 +1,9 @@
 import 'package:cafe/models/coffee.dart';
+import 'package:cafe/models/coffee_shop.dart';
 import 'package:cafe/theme/colors.dart';
 import 'package:flutter/material.dart';
+import 'package:transparent_image/transparent_image.dart';
+import 'package:provider/provider.dart';
 
 class CoffeeDetailPage extends StatelessWidget {
   final Coffee coffee;
@@ -65,6 +68,17 @@ class CoffeeDetailPage extends StatelessWidget {
                     elevation: 0,
                   ),
                   onPressed: () {
+                    final shop = Provider.of<CoffeeShop>(
+                      context,
+                      listen: false,
+                    );
+                    shop.addItemToCart(coffee);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${coffee.name} added to cart'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
                     Navigator.pop(context, true);
                   },
                   child: const Text(
@@ -89,86 +103,116 @@ class _HeroImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Hero(
       tag: 'coffee-image-${coffee.name}',
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: AspectRatio(
-          aspectRatio: 4 / 5,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.network(
-                coffee.imagePath,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          Widget fallbackImage() => Container(
+            color: Colors.grey[850],
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.local_cafe,
+              color: Colors.white54,
+              size: 56,
+            ),
+          );
+
+          Widget buildImage() {
+            final url = coffee.remoteImageUrl;
+            if (url != null && url.isNotEmpty) {
+              return FadeInImage.memoryNetwork(
+                placeholder: kTransparentImage,
+                image: url,
                 fit: BoxFit.cover,
-                errorBuilder: (c, e, s) => Container(
-                  color: Colors.grey[800],
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.coffee,
-                    color: Colors.white54,
-                    size: 56,
-                  ),
-                ),
-              ),
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [Colors.black54, Colors.transparent],
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        coffee.name,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: .5,
-                        ),
+                fadeInDuration: const Duration(milliseconds: 320),
+                fadeInCurve: Curves.easeInOut,
+                imageErrorBuilder: (context, error, stackTrace) =>
+                    fallbackImage(),
+              );
+            }
+            return fallbackImage();
+          }
+
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: AspectRatio(
+              aspectRatio: 4 / 5,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned.fill(child: buildImage()),
+                  Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [Colors.black87, Colors.transparent],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 18,
-                            color: Colors.black,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            coffee.rating.toStringAsFixed(1),
+                  ),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 18,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            coffee.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: .8,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent,
+                                  borderRadius: BorderRadius.circular(28),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      size: 18,
+                                      color: Colors.black,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      coffee.rating.toStringAsFixed(1),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
