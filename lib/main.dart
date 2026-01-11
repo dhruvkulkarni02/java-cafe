@@ -1,5 +1,6 @@
 import 'package:cafe/models/coffee_shop.dart';
 import 'package:cafe/pages/intro_page.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -39,13 +40,17 @@ class MyApp extends StatelessWidget {
             theme.load();
           });
           return Consumer<AppTheme>(
-            builder: (context, appTheme, _) => MaterialApp(
-              debugShowCheckedModeBanner: false,
-              themeMode: appTheme.isDark ? ThemeMode.dark : ThemeMode.light,
-              theme: _buildLightTheme(),
-              darkTheme: _buildDarkTheme(),
-              home: const IntroPage(),
-            ),
+            builder: (context, appTheme, _) {
+              final isDark = appTheme.isDark;
+              return CupertinoApp(
+                debugShowCheckedModeBanner: false,
+                theme: _buildCupertinoTheme(isDark),
+                home: Theme(
+                  data: isDark ? _buildDarkTheme() : _buildLightTheme(),
+                  child: const IntroPage(),
+                ),
+              );
+            },
           );
         },
       ),
@@ -53,6 +58,33 @@ class MyApp extends StatelessWidget {
   }
 }
 
+CupertinoThemeData _buildCupertinoTheme(bool isDark) {
+  return CupertinoThemeData(
+    brightness: isDark ? Brightness.dark : Brightness.light,
+    primaryColor: AppColors.accent,
+    scaffoldBackgroundColor: isDark ? AppColors.bg : const Color(0xFFF8F5F2),
+    barBackgroundColor: isDark
+        ? AppColors.card.withOpacity(0.9)
+        : const Color(0xFFFFFFFF).withOpacity(0.9),
+    textTheme: CupertinoTextThemeData(
+      textStyle: GoogleFonts.dmSans(
+        color: isDark ? CupertinoColors.white : const Color(0xFF1E1A17),
+      ),
+      navTitleTextStyle: GoogleFonts.dmSans(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        color: isDark ? CupertinoColors.white : const Color(0xFF1E1A17),
+      ),
+      navLargeTitleTextStyle: GoogleFonts.dmSans(
+        fontSize: 34,
+        fontWeight: FontWeight.w700,
+        color: isDark ? CupertinoColors.white : const Color(0xFF1E1A17),
+      ),
+    ),
+  );
+}
+
+// Material theme kept for compatibility with Material widgets that may still be used
 ThemeData _baseTheme(ColorScheme scheme) => ThemeData(
   scaffoldBackgroundColor: scheme.surface,
   colorScheme: scheme,
@@ -76,7 +108,7 @@ ThemeData _buildDarkTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: AppColors.accent,
     brightness: Brightness.dark,
-    background: AppColors.bg,
+    surface: AppColors.bg,
     primary: AppColors.accent,
     secondary: AppColors.accent2,
   );
@@ -101,7 +133,7 @@ ThemeData _buildLightTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: AppColors.accent,
     brightness: Brightness.light,
-    background: bg,
+    surface: bg,
     primary: AppColors.accent2,
     secondary: AppColors.accent,
   );

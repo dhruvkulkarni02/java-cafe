@@ -2,6 +2,7 @@ import 'package:cafe/pages/cart_page.dart';
 import 'package:cafe/pages/favorites_page.dart';
 import 'package:cafe/pages/menu_page.dart';
 import 'package:cafe/theme/colors.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cafe/models/coffee_shop.dart';
@@ -14,87 +15,94 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0;
+  late final CupertinoTabController _controller;
 
-  final List<Widget> _pages = [
-    const MenuPage(),
-    const CartPage(),
-    const FavoritesPage(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _controller = CupertinoTabController();
+  }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        switchInCurve: Curves.easeInOut,
-        switchOutCurve: Curves.easeInOut,
-        transitionBuilder: (child, animation) {
-          final slideAnimation = Tween<Offset>(
-            begin: const Offset(0.08, 0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(position: slideAnimation, child: child),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey<int>(_selectedIndex),
-          child: _pages[_selectedIndex],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(28),
-            topRight: Radius.circular(28),
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(28),
-            topRight: Radius.circular(28),
-          ),
-          child: Consumer<CoffeeShop>(
-            builder: (context, shop, _) => BottomNavigationBar(
-              backgroundColor: AppColors.card,
-              elevation: 0,
-              selectedItemColor: AppColors.accent,
-              unselectedItemColor: AppColors.subtleText,
-              showUnselectedLabels: false,
-              type: BottomNavigationBarType.fixed,
-              items: <BottomNavigationBarItem>[
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.coffee_outlined),
-                  label: 'Home',
-                ),
-                BottomNavigationBarItem(
-                  icon: _NavBadge(
-                    icon: Icons.shopping_bag_outlined,
-                    count: shop.userCart.length,
-                  ),
-                  label: 'Cart',
-                ),
-                BottomNavigationBarItem(
-                  icon: _NavBadge(
-                    icon: Icons.favorite_border,
-                    count: shop.favorites.length,
-                  ),
-                  label: 'Favs',
-                ),
-              ],
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
+    return ChangeNotifierProvider<CupertinoTabController>.value(
+      value: _controller,
+      child: Consumer<CoffeeShop>(
+        builder: (context, shop, _) => CupertinoTabScaffold(
+          controller: _controller,
+          tabBar: CupertinoTabBar(
+            backgroundColor: AppColors.card.withOpacity(0.95),
+            activeColor: AppColors.accent,
+            inactiveColor: AppColors.subtleText,
+            border: const Border(
+              top: BorderSide(
+                color: CupertinoColors.systemGrey5,
+                width: 0.0,
+              ),
             ),
+            items: <BottomNavigationBarItem>[
+              const BottomNavigationBarItem(
+                icon: Icon(CupertinoIcons.circle_grid_hex_fill),
+                label: 'Menu',
+              ),
+              BottomNavigationBarItem(
+                icon: _NavBadge(
+                  icon: CupertinoIcons.bag,
+                  count: shop.userCart.length,
+                ),
+                label: 'Cart',
+              ),
+              BottomNavigationBarItem(
+                icon: _NavBadge(
+                  icon: CupertinoIcons.heart,
+                  count: shop.favorites.length,
+                ),
+                label: 'Favorites',
+              ),
+            ],
           ),
+          tabBuilder: (context, index) {
+            return CupertinoTabView(
+              builder: (context) {
+                Widget content;
+                switch (index) {
+                  case 0:
+                    content = const MenuPage();
+                    break;
+                  case 1:
+                    content = const CartPage();
+                    break;
+                  case 2:
+                    content = const FavoritesPage();
+                    break;
+                  default:
+                    content = const MenuPage();
+                }
+                
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeInOut,
+                  switchOutCurve: Curves.easeInOut,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey(index),
+                    child: content,
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
     );
@@ -108,26 +116,32 @@ class _NavBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (count == 0) return Icon(icon);
+    if (count == 0) return Icon(icon, size: 28);
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Icon(icon),
+        Icon(icon, size: 28),
         Positioned(
-          right: -6,
+          right: -8,
           top: -4,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
               color: AppColors.accent,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            constraints: const BoxConstraints(
+              minWidth: 16,
+              minHeight: 16,
             ),
             child: Text(
               count.toString(),
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 color: Colors.black,
+                height: 1.0,
               ),
             ),
           ),

@@ -1,17 +1,10 @@
 import 'dart:convert';
 import 'package:cafe/models/coffee.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CoffeeShop extends ChangeNotifier {
-  CoffeeShop({http.Client? client}) : _httpClient = client ?? http.Client();
-
-  static final Uri _drinksEndpoint = Uri.parse(
-    'https://raw.githubusercontent.com/igdev116/free-food-menus-api/main/db.json',
-  );
-
-  final http.Client _httpClient;
+  CoffeeShop();
 
   final List<Coffee> _shop = [];
   final List<Coffee> _userCart = [];
@@ -42,7 +35,7 @@ class CoffeeShop extends ChangeNotifier {
 
     try {
       if (forceRefresh || !_hasLoadedOnce) {
-        await _fetchMenu();
+        _loadMenu();
       }
       await _restorePersistedState();
       _errorMessage = null;
@@ -94,6 +87,13 @@ class CoffeeShop extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearCart() {
+    _cartQuantities.clear();
+    _userCart.clear();
+    _persist();
+    notifyListeners();
+  }
+
   void toggleFavorite(Coffee coffee) {
     final target = _findCoffeeByName(coffee.name);
     if (target == null) return;
@@ -120,280 +120,187 @@ class CoffeeShop extends ChangeNotifier {
     return sum;
   }
 
-  @override
-  void dispose() {
-    _httpClient.close();
-    super.dispose();
-  }
-
-  Future<void> _fetchMenu() async {
-    final response = await _httpClient.get(_drinksEndpoint);
-    if (response.statusCode != 200) {
-      throw Exception('Request failed with status ${response.statusCode}');
-    }
-    final decoded = jsonDecode(response.body);
-    final drinks = _extractDrinks(decoded);
-
-    var coffees = _mapToCoffeeList(drinks, applyFilter: true);
-    if (coffees.isEmpty) {
-      if (kDebugMode) {
-        debugPrint('Drink filter yielded 0 results, relaxing constraints.');
-      }
-      coffees = _mapToCoffeeList(drinks, applyFilter: false);
-    }
-    if (coffees.isEmpty) {
-      throw Exception('No coffee drinks found.');
-    }
+  void _loadMenu() {
+    final menu = _buildHardcodedMenu();
     _shop
       ..clear()
-      ..addAll(coffees);
+      ..addAll(menu);
   }
 
-  List<dynamic> _extractDrinks(dynamic decoded) {
-    if (decoded is List) {
-      return decoded;
-    }
-    if (decoded is Map<String, dynamic>) {
-      final drinks = decoded['drinks'];
-      if (drinks is List) {
-        return drinks;
-      }
-    }
-    throw Exception('Drinks data missing from API response.');
-  }
-
-  List<Coffee> _mapToCoffeeList(
-    List<dynamic> data, {
-    required bool applyFilter,
-  }) {
-    final seen = <String>{};
-    final coffees = <Coffee>[];
-    for (final entry in data) {
-      if (entry is! Map<String, dynamic>) continue;
-      if (applyFilter && !_looksLikeSupportedDrink(entry)) continue;
-      final coffee = _mapToCoffee(entry);
-      final rawId = entry['id']?.toString().trim();
-      final key = (rawId != null && rawId.isNotEmpty)
-          ? rawId.toLowerCase()
-          : coffee.name.toLowerCase();
-      if (seen.add(key)) {
-        coffees.add(coffee);
-      }
-    }
-    coffees.sort((a, b) => a.name.compareTo(b.name));
-    return coffees;
-  }
-
-  Coffee _mapToCoffee(Map<String, dynamic> json) {
-    final rawName = json['name']?.toString().trim();
-    final name = (rawName == null || rawName.isEmpty) ? 'Coffee' : rawName;
-    final rawDescription = json['dsc']?.toString().trim();
-    final price = _formatPrice(json['price']);
-    final rating = (json['rate'] is num)
-        ? (json['rate'] as num).toDouble()
-        : 4.5;
-    final remoteImage = json['img']?.toString();
-    final category = _inferCategory(name, rawDescription ?? '');
-    return Coffee(
-      name: name,
-      price: price,
-      remoteImageUrl: remoteImage,
-      category: category,
-      description: _buildDescription(
-        name: name,
-        rawDescription: rawDescription,
-        category: category,
+  List<Coffee> _buildHardcodedMenu() {
+    return [
+      // ─────────────────────────────────────────────
+      // COFFEE DRINKS
+      // ─────────────────────────────────────────────
+      Coffee(
+        name: 'Espresso',
+        price: '3.25',
+        category: 'Coffee',
+        description: 'A bold, concentrated shot of rich espresso with a velvety crema.',
+        rating: 4.8,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1510707577719-ae7c14805e3a?w=400&q=80',
       ),
-      rating: rating,
-    );
-  }
+      Coffee(
+        name: 'Americano',
+        price: '4.25',
+        category: 'Coffee',
+        description: 'Espresso diluted with hot water for a smooth, full-bodied coffee.',
+        rating: 4.6,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1551030173-122aabc4489c?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Cappuccino',
+        price: '5.50',
+        category: 'Coffee',
+        description: 'Equal parts espresso, steamed milk, and velvety foam topped with cocoa.',
+        rating: 4.9,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Latte',
+        price: '5.75',
+        category: 'Coffee',
+        description: 'Creamy steamed milk poured over espresso for a smooth, balanced taste.',
+        rating: 4.8,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1561882468-9110e03e0f78?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Flat White',
+        price: '5.50',
+        category: 'Coffee',
+        description: 'Velvety microfoam espresso drink with a stronger coffee flavor.',
+        rating: 4.7,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1577968897966-3d4325b36b61?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Mocha',
+        price: '6.25',
+        category: 'Coffee',
+        description: 'Rich espresso meets chocolate and steamed milk, topped with whipped cream.',
+        rating: 4.9,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1578314675249-a6910f80cc4e?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Macchiato',
+        price: '4.75',
+        category: 'Coffee',
+        description: 'Espresso "stained" with a dollop of foamed milk.',
+        rating: 4.5,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1485808191679-5f86510681a2?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Cold Brew',
+        price: '5.25',
+        category: 'Coffee',
+        description: 'Smooth, less acidic coffee steeped cold for 20 hours.',
+        rating: 4.7,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Iced Latte',
+        price: '6.00',
+        category: 'Coffee',
+        description: 'Chilled espresso and milk over ice for a refreshing pick-me-up.',
+        rating: 4.6,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Caramel Macchiato',
+        price: '6.50',
+        category: 'Coffee',
+        description: 'Vanilla-infused milk marked with espresso and drizzled with caramel.',
+        rating: 4.8,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1599398054066-846a63a8f678?w=400&q=80',
+      ),
 
-  bool _looksLikeSupportedDrink(Map<String, dynamic> json) {
-    final combined = '${json['name'] ?? ''} ${json['dsc'] ?? ''}'.toLowerCase();
+      // ─────────────────────────────────────────────
+      // TEA & SPECIALTY
+      // ─────────────────────────────────────────────
+      Coffee(
+        name: 'Chai Latte',
+        price: '5.50',
+        category: 'Tea & Specialty',
+        description: 'Spiced black tea blended with steamed milk and warming spices.',
+        rating: 4.7,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1597318181409-cf64d0b5d8a2?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Matcha Latte',
+        price: '6.25',
+        category: 'Tea & Specialty',
+        description: 'Ceremonial-grade matcha whisked with creamy steamed milk.',
+        rating: 4.8,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=400&q=80',
+      ),
+      Coffee(
+        name: 'London Fog',
+        price: '5.75',
+        category: 'Tea & Specialty',
+        description: 'Earl Grey tea with vanilla and silky steamed milk.',
+        rating: 4.6,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1571934811356-5cc061b6821f?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Hot Chocolate',
+        price: '4.75',
+        category: 'Tea & Specialty',
+        description: 'Rich Belgian chocolate melted into steamed milk, topped with cream.',
+        rating: 4.9,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Golden Milk',
+        price: '5.50',
+        category: 'Tea & Specialty',
+        description: 'Turmeric-spiced latte with ginger, cinnamon, and oat milk.',
+        rating: 4.5,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=400&q=80',
+      ),
 
-    const includeKeywords = [
-      'coffee',
-      'espresso',
-      'latte',
-      'mocha',
-      'cappuccino',
-      'brew',
-      'cold brew',
-      'nitro',
-      'macchiato',
-      'tea',
-      'milk tea',
-      'matcha',
-      'chai',
-      'boba',
-      'bubble',
-      'frappe',
-      'smoothie',
-      'lemonade',
-      'juice',
-      'cocktail',
-      'chocolate',
-      'margarita',
-      'hurricane',
-      'sangria',
-      'spritz',
-      'tonic',
-      'soda',
-      'shandy',
-      'mocktail',
-      'drink',
-      'mix',
-      'milkshake',
-      'float',
-      'shake',
-      'syrup',
-      'julep',
-      'shot',
-      'bloody',
-      'mary',
-      'ice cream',
-      'beignet',
-      'croissant',
-      'pastry',
-      'sandwich',
-      'toast',
-      'scone',
-      'muffin',
-      'bagel',
+      // ─────────────────────────────────────────────
+      // PASTRIES & FOOD
+      // ─────────────────────────────────────────────
+      Coffee(
+        name: 'Butter Croissant',
+        price: '4.25',
+        category: 'Pastries & Food',
+        description: 'Flaky, golden French croissant made with pure butter.',
+        rating: 4.8,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Almond Croissant',
+        price: '5.25',
+        category: 'Pastries & Food',
+        description: 'Buttery croissant filled with almond cream and topped with sliced almonds.',
+        rating: 4.9,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1623334044303-241021148842?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Blueberry Muffin',
+        price: '4.00',
+        category: 'Pastries & Food',
+        description: 'Moist muffin bursting with fresh blueberries and a crumb topping.',
+        rating: 4.6,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1607958996333-41aef7caefaa?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Avocado Toast',
+        price: '9.50',
+        category: 'Pastries & Food',
+        description: 'Smashed avocado on sourdough with cherry tomatoes, feta, and chili flakes.',
+        rating: 4.7,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1541519227354-08fa5d50c44d?w=400&q=80',
+      ),
+      Coffee(
+        name: 'Breakfast Sandwich',
+        price: '8.75',
+        category: 'Pastries & Food',
+        description: 'Scrambled eggs, cheddar, and bacon on a toasted brioche bun.',
+        rating: 4.8,
+        remoteImageUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=400&q=80',
+      ),
     ];
-
-    const excludeKeywords = [
-      'gift',
-      'subscription',
-      'flight',
-      'tickets',
-      'experience',
-      'class',
-      'merch',
-      'candle',
-      'hot dog',
-      'drink bottle',
-      'dinner',
-    ];
-
-    if (!includeKeywords.any((keyword) => combined.contains(keyword))) {
-      return false;
-    }
-
-    if (excludeKeywords.any((keyword) => combined.contains(keyword))) {
-      return false;
-    }
-
-    return true;
-  }
-
-  String _formatPrice(dynamic price) {
-    final parsed = switch (price) {
-      num value => value.toDouble(),
-      _ => double.tryParse(price?.toString() ?? ''),
-    };
-
-    final normalized = _normalizePrice(parsed ?? 0);
-    return normalized.toStringAsFixed(2);
-  }
-
-  String _inferCategory(String name, String description) {
-    final text = '$name $description'.toLowerCase();
-    if (text.contains('matcha')) return 'Matcha';
-    if (text.contains('boba') || text.contains('bubble')) return 'Boba Tea';
-    if (text.contains('tea') || text.contains('chai')) return 'Tea';
-    if (text.contains('iced') || text.contains('cold brew')) return 'Iced';
-    if (text.contains('mocha') ||
-        text.contains('chocolate') ||
-        text.contains('cocoa')) {
-      return 'Chocolate';
-    }
-    if (text.contains('latte') ||
-        text.contains('macchiato') ||
-        text.contains('frappe')) {
-      return 'Latte';
-    }
-    if (text.contains('espresso') ||
-        text.contains('ristretto') ||
-        text.contains('doppio')) {
-      return 'Espresso';
-    }
-    if (text.contains('smoothie')) return 'Smoothie';
-    if (text.contains('mocktail') ||
-        text.contains('margarita') ||
-        text.contains('sangria') ||
-        text.contains('spritz') ||
-        text.contains('cocktail') ||
-        text.contains('shandy')) {
-      return 'Cocktail';
-    }
-    if (text.contains('syrup') || text.contains('extract')) return 'Syrup';
-    if (text.contains('lemonade') || text.contains('juice')) return 'Juice';
-    if (text.contains('soda') || text.contains('tonic')) return 'Soda';
-    if (text.contains('coffee cake') ||
-        text.contains('pastry') ||
-        text.contains('croissant') ||
-        text.contains('scone') ||
-        text.contains('muffin') ||
-        text.contains('bagel') ||
-        text.contains('toast')) {
-      return 'Bakery';
-    }
-    if (text.contains('sandwich')) return 'Savory Bite';
-    return 'Specialty Drink';
-  }
-
-  double _normalizePrice(double price) {
-    if (price <= 0) return 4.50;
-    double normalized = price;
-    if (price >= 40) {
-      normalized = price / 12; // e.g. 60 -> 5.0
-    } else if (price >= 20) {
-      normalized = price / 3.5; // e.g. 24 -> 6.85
-    }
-    if (normalized < 3.75) normalized = 3.75;
-    if (normalized > 12) normalized = 12.0;
-    return normalized;
-  }
-
-  String _buildDescription({
-    required String name,
-    String? rawDescription,
-    required String category,
-  }) {
-    final description = rawDescription?.trim();
-    if (description != null && description.isNotEmpty) {
-      return description;
-    }
-
-    final base = switch (category) {
-      'Matcha' =>
-        'Whisked ceremonial-grade matcha with velvety milk for a naturally sweet, vibrant green sip.',
-      'Boba Tea' =>
-        'Chewy tapioca pearls swimming in a creamy tea blend for a playful, refreshing treat.',
-      'Tea' =>
-        'A thoughtfully steeped tea featuring balanced aromatics and a soothing finish.',
-      'Iced' =>
-        'Chilled over clinking ice to highlight bright notes and a smooth, refreshing finish.',
-      'Chocolate' =>
-        'Silky cocoa blended with steamed milk for a decadent, dessert-worthy drink.',
-      'Latte' =>
-        'Expertly pulled espresso mellowed by textured milk for a balanced, velvety latte.',
-      'Espresso' =>
-        'Bold, aromatic espresso crafted from freshly ground beans for a rich crema.',
-      'Smoothie' =>
-        'A blended medley of ripe fruit and creamy textures for a revitalizing sip.',
-      'Cocktail' =>
-        'A barista-inspired mocktail with layered flavors and a sophisticated finish.',
-      'Syrup' =>
-        'Our house syrup adds a touch of sweetness and depth to your favorite drinks.',
-      'Juice' =>
-        'Pressed and poured to capture vibrant fruit character with a clean finish.',
-      _ =>
-        'A signature ${category.toLowerCase()} crafted with premium ingredients and barista-level care.',
-    };
-
-    return '$name — $base';
   }
 
   Coffee? _findCoffeeByName(String name) {

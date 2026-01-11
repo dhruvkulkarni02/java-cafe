@@ -2,15 +2,19 @@ import 'package:cafe/models/coffee.dart';
 import 'package:cafe/models/coffee_shop.dart';
 import 'package:cafe/theme/colors.dart';
 import 'package:cafe/pages/coffee_detail_page.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:transparent_image/transparent_image.dart';
+import 'package:cafe/utils/transitions.dart';
 
 class CoffeeTile extends StatefulWidget {
   final Coffee coffee;
   final VoidCallback? onPressed;
   final Widget icon;
   final bool enableAddAnimation;
+  final int cartQuantity;
 
   const CoffeeTile({
     super.key,
@@ -18,6 +22,7 @@ class CoffeeTile extends StatefulWidget {
     required this.onPressed,
     required this.icon,
     this.enableAddAnimation = false,
+    this.cartQuantity = 0,
   });
 
   @override
@@ -51,6 +56,7 @@ class _CoffeeTileState extends State<CoffeeTile>
   }
 
   void _onActionPressed() {
+    HapticFeedback.lightImpact();
     widget.onPressed?.call();
     if (widget.enableAddAnimation) {
       _triggerAddAnimation();
@@ -66,12 +72,18 @@ class _CoffeeTileState extends State<CoffeeTile>
     });
   }
 
+  void _onDoubleTap() {
+    HapticFeedback.mediumImpact();
+    final shop = Provider.of<CoffeeShop>(context, listen: false);
+    shop.toggleFavorite(widget.coffee);
+  }
+
   Animation<double> get _effectiveScale =>
       widget.enableAddAnimation ? _scaleAnimation : _idleAnimation;
 
   Widget get _currentIcon {
     if (widget.enableAddAnimation && _showCheckmark) {
-      return const Icon(Icons.check, key: ValueKey('added'), size: 18);
+      return const Icon(CupertinoIcons.checkmark_alt, key: ValueKey('added'), size: 18, color: CupertinoColors.black);
     }
     return KeyedSubtree(key: const ValueKey('default'), child: widget.icon);
   }
@@ -79,18 +91,21 @@ class _CoffeeTileState extends State<CoffeeTile>
   @override
   Widget build(BuildContext context) {
     final coffee = widget.coffee;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
     final shop = Provider.of<CoffeeShop>(context, listen: true);
     final fav = shop.isFavorite(coffee);
+    final cartQty = widget.cartQuantity;
+    final textColor = isDark ? CupertinoColors.white : const Color(0xFF1E1A17);
+
     Widget fallbackImage({double iconSize = 36}) => Container(
-      color: Colors.grey[850],
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.coffee,
-        color: Colors.white.withOpacity(.55),
-        size: iconSize,
-      ),
-    );
+          color: const Color(0xFF303030),
+          alignment: Alignment.center,
+          child: Icon(
+            CupertinoIcons.circle_grid_hex_fill,
+            color: CupertinoColors.white.withOpacity(.55),
+            size: iconSize,
+          ),
+        );
 
     Widget buildImage() {
       final url = coffee.remoteImageUrl;
@@ -108,57 +123,53 @@ class _CoffeeTileState extends State<CoffeeTile>
       return fallbackImage(iconSize: 34);
     }
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.only(bottom: 18),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor.withOpacity(isDark ? 1 : .95),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          if (isDark)
-            BoxShadow(
-              color: Colors.black.withOpacity(.35),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-              spreadRadius: -4,
-            )
-          else ...[
-            BoxShadow(
-              color: Colors.brown.withOpacity(.08),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-              spreadRadius: -2,
-            ),
-            BoxShadow(
-              color: Colors.brown.withOpacity(.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-              spreadRadius: 0,
-            ),
-          ],
-        ],
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(.05)
-              : Colors.brown.withOpacity(.12),
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: () async {
-          final added = await Navigator.of(context).push(
-            PageRouteBuilder(
-              transitionDuration: const Duration(milliseconds: 450),
-              pageBuilder: (_, a1, a2) => FadeTransition(
-                opacity: CurvedAnimation(parent: a1, curve: Curves.easeInOut),
-                child: CoffeeDetailPage(coffee: coffee),
+    return GestureDetector(
+      onDoubleTap: _onDoubleTap,
+      onTap: () async {
+        final added = await Navigator.of(context).push(
+          FadeScalePageRoute(
+            page: CoffeeDetailPage(coffee: coffee),
+          ),
+        );
+        if (added == true && widget.enableAddAnimation) {
+          _triggerAddAnimation();
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        margin: const EdgeInsets.only(bottom: 18),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.card : CupertinoColors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            if (isDark)
+              BoxShadow(
+                color: CupertinoColors.black.withOpacity(.35),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+                spreadRadius: -4,
+              )
+            else ...[
+              BoxShadow(
+                color: const Color(0xFF8B4513).withOpacity(.08),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+                spreadRadius: -2,
               ),
-            ),
-          );
-          if (added == true && widget.enableAddAnimation) {
-            _triggerAddAnimation();
-          }
-        },
+              BoxShadow(
+                color: const Color(0xFF8B4513).withOpacity(.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+                spreadRadius: 0,
+              ),
+            ],
+          ],
+          border: Border.all(
+            color: isDark
+                ? CupertinoColors.white.withOpacity(.05)
+                : const Color(0xFF8B4513).withOpacity(.12),
+          ),
+        ),
         child: Row(
           children: [
             // image
@@ -182,7 +193,7 @@ class _CoffeeTileState extends State<CoffeeTile>
                             begin: Alignment.bottomCenter,
                             end: Alignment.topCenter,
                             colors: [
-                              Colors.black.withOpacity(0.55),
+                              CupertinoColors.black.withOpacity(0.55),
                               Colors.transparent,
                             ],
                           ),
@@ -192,26 +203,81 @@ class _CoffeeTileState extends State<CoffeeTile>
                         top: 6,
                         right: 6,
                         child: GestureDetector(
-                          onTap: () => shop.toggleFavorite(coffee),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            shop.toggleFavorite(coffee);
+                          },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 250),
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: fav
                                   ? AppColors.accent
-                                  : Colors.black.withOpacity(.35),
+                                  : CupertinoColors.black.withOpacity(.35),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Icon(
-                              fav ? Icons.favorite : Icons.favorite_border,
-                              size: 16,
-                              color: fav
-                                  ? Colors.black
-                                  : Colors.white.withOpacity(.9),
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              transitionBuilder: (child, anim) =>
+                                  ScaleTransition(scale: anim, child: child),
+                              child: Icon(
+                                fav ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+                                key: ValueKey(fav),
+                                size: 16,
+                                color: fav
+                                    ? CupertinoColors.black
+                                    : CupertinoColors.white.withOpacity(.9),
+                              ),
                             ),
                           ),
                         ),
                       ),
+                      // Cart quantity badge
+                      if (cartQty > 0)
+                        Positioned(
+                          bottom: 6,
+                          left: 6,
+                          child: AnimatedScale(
+                            scale: 1,
+                            duration: const Duration(milliseconds: 250),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent2,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: CupertinoColors.black.withOpacity(0.3),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    CupertinoIcons.bag_fill,
+                                    size: 12,
+                                    color: CupertinoColors.white,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$cartQty',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: CupertinoColors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -236,9 +302,7 @@ class _CoffeeTileState extends State<CoffeeTile>
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Theme.of(
-                                context,
-                              ).textTheme.bodyMedium?.color,
+                              color: textColor,
                               letterSpacing: .3,
                             ),
                             maxLines: 1,
@@ -249,7 +313,7 @@ class _CoffeeTileState extends State<CoffeeTile>
                         Row(
                           children: [
                             const Icon(
-                              Icons.star_rounded,
+                              CupertinoIcons.star_fill,
                               size: 16,
                               color: AppColors.accent,
                             ),
@@ -273,8 +337,8 @@ class _CoffeeTileState extends State<CoffeeTile>
                       ),
                       decoration: BoxDecoration(
                         color: isDark
-                            ? Colors.white.withOpacity(.06)
-                            : Colors.brown.withOpacity(.08),
+                            ? CupertinoColors.white.withOpacity(.06)
+                            : const Color(0xFF8B4513).withOpacity(.08),
                         borderRadius: BorderRadius.circular(30),
                       ),
                       child: Text(
@@ -283,7 +347,7 @@ class _CoffeeTileState extends State<CoffeeTile>
                           fontSize: 11,
                           color: isDark
                               ? AppColors.subtleText
-                              : Colors.brown.shade400,
+                              : const Color(0xFFA1887F),
                           letterSpacing: .4,
                         ),
                       ),
@@ -308,22 +372,18 @@ class _CoffeeTileState extends State<CoffeeTile>
                           ),
                           child: ScaleTransition(
                             scale: _effectiveScale,
-                            child: IconButton(
-                              icon: AnimatedSwitcher(
+                            child: CupertinoButton(
+                              padding: const EdgeInsets.all(10),
+                              onPressed: _onActionPressed,
+                              child: AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 240),
                                 transitionBuilder: (child, animation) =>
                                     ScaleTransition(
-                                      scale: animation,
-                                      child: child,
-                                    ),
+                                  scale: animation,
+                                  child: child,
+                                ),
                                 child: _currentIcon,
-                              ),
-                              color: widget.enableAddAnimation
-                                  ? Colors.black
-                                  : Theme.of(context).iconTheme.color,
-                              onPressed: _onActionPressed,
-                              iconSize: 20,
-                              splashRadius: 22,
+                              ), minimumSize: Size(0, 0),
                             ),
                           ),
                         ),

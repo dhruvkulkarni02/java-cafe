@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cafe/pages/home_page.dart';
@@ -10,9 +11,11 @@ class IntroPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Center(
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    
+    return CupertinoPageScaffold(
+      backgroundColor: isDark ? AppColors.bg : const Color(0xFFF8F5F2),
+      child: Center(
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(25.0),
@@ -33,7 +36,7 @@ class IntroPage extends StatelessWidget {
                           color: AppColors.card,
                           alignment: Alignment.center,
                           child: const Icon(
-                            Icons.local_cafe,
+                            CupertinoIcons.circle_grid_hex_fill,
                             size: 72,
                             color: AppColors.subtleText,
                           ),
@@ -47,8 +50,8 @@ class IntroPage extends StatelessWidget {
 
                 // Title
                 ShaderMask(
-                  shaderCallback: (bounds) => LinearGradient(
-                    colors: const [AppColors.accent, AppColors.accent2],
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [AppColors.accent, AppColors.accent2],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ).createShader(bounds),
@@ -56,7 +59,7 @@ class IntroPage extends StatelessWidget {
                     "JAVA CAFÉ",
                     style: GoogleFonts.dmSerifDisplay(
                       fontSize: 52,
-                      color: Colors.white,
+                      color: CupertinoColors.white,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -82,36 +85,23 @@ class IntroPage extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accent,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(32),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 20,
-                          ),
-                          elevation: 0,
+                      child: CupertinoButton.filled(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
                         ),
+                        borderRadius: BorderRadius.circular(32),
                         onPressed: () {
                           if (Navigator.of(context).canPop()) return;
                           Navigator.pushReplacement(
                             context,
-                            PageRouteBuilder(
-                              transitionDuration: const Duration(
-                                milliseconds: 650,
+                            CupertinoPageRoute(
+                              builder: (_) => Theme(
+                                data: isDark
+                                    ? ThemeData.dark()
+                                    : ThemeData.light(),
+                                child: const HomePage(),
                               ),
-                              pageBuilder: (_, a1, a2) => const HomePage(),
-                              transitionsBuilder: (_, animation, __, child) =>
-                                  FadeTransition(
-                                    opacity: CurvedAnimation(
-                                      parent: animation,
-                                      curve: Curves.easeInOut,
-                                    ),
-                                    child: child,
-                                  ),
                             ),
                           );
                         },
@@ -121,25 +111,25 @@ class IntroPage extends StatelessWidget {
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                             letterSpacing: .5,
+                            color: CupertinoColors.black,
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 14),
                     Consumer<AppTheme>(
-                      builder: (_, theme, __) => InkWell(
+                      builder: (_, theme, __) => GestureDetector(
                         onTap: theme.toggle,
-                        borderRadius: BorderRadius.circular(28),
                         child: Container(
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(28),
-                            color: Theme.of(context).cardColor,
+                            color: isDark ? AppColors.card : CupertinoColors.white,
                           ),
                           child: Icon(
                             theme.isDark
-                                ? Icons.wb_sunny_rounded
-                                : Icons.dark_mode_rounded,
+                                ? CupertinoIcons.sun_max_fill
+                                : CupertinoIcons.moon_fill,
                             color: theme.isDark
                                 ? AppColors.accent
                                 : AppColors.accent2,
